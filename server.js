@@ -50,7 +50,10 @@ wss.on('connection', async (client) => {
   });
 
   client.on('message', (audio) => {
-    if (dgSocket.readyState === WebSocket.OPEN) dgSocket.send(audio);
+    if (dgSocket.readyState === WebSocket.OPEN) {
+      console.log('📥 Received audio chunk of size:', audio.byteLength || audio.length); // ✅ Log audio chunk size
+      dgSocket.send(audio);
+    }
   });
 
   client.on('close', () => {
@@ -98,7 +101,6 @@ async function streamToElevenLabs(reader, client) {
   );
 
   elSocket.on('open', async () => {
-    // Send voice config and initial empty payload
     elSocket.send(
       JSON.stringify({
         text: '',
