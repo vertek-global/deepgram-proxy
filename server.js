@@ -1,5 +1,5 @@
 import express from 'express';
-import { WebSocketServer } from 'ws';
+import WebSocket, { WebSocketServer } from 'ws';
 import fetch from 'node-fetch';
 import http from 'http';
 import dotenv from 'dotenv';
