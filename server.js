@@ -5,7 +5,6 @@ import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import http from 'http';
 import { parse } from 'url';
-import { WebSocketServer } from 'ws';
 import WebSocket from 'ws';
 
 dotenv.config();
