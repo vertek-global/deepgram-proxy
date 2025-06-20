@@ -31,8 +31,10 @@ wss.on('connection', async (client) => {
       const text = json.channel?.alternatives?.[0]?.transcript?.trim();
       if (text) {
         console.log('📝 Deepgram transcript:', text);
-        const responseStream = await getGPTStream(text);
-        if (responseStream) streamToElevenLabs(responseStream, client);
+        const gptStream = await getGPTStream(text);
+        if (gptStream) {
+          await streamToElevenLabs(gptStream, client);
+        }
       }
     } catch (err) {
       console.error('⚠️ Failed to parse Deepgram message:', err);
@@ -96,6 +98,7 @@ async function streamToElevenLabs(reader, client) {
   );
 
   elSocket.on('open', async () => {
+    // Send voice config and initial empty payload
     elSocket.send(
       JSON.stringify({
         text: '',
@@ -105,17 +108,24 @@ async function streamToElevenLabs(reader, client) {
     );
 
     const decoder = new TextDecoder();
+    let buffer = '';
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n').filter((line) => line.startsWith('data: '));
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
       for (const line of lines) {
-        const payload = line.replace(/^data: /, '');
-        if (payload === '[DONE]') return elSocket.close();
+        if (!line.startsWith('data: ')) continue;
+
+        const payload = line.replace('data: ', '');
+        if (payload === '[DONE]') {
+          elSocket.close();
+          return;
+        }
 
         try {
           const data = JSON.parse(payload);
