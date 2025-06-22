@@ -26,15 +26,21 @@ wss.on('connection', async (client) => {
   dgSocket.on('open', () => console.log('✅ Connected to Deepgram'));
 
   dgSocket.on('message', async (msg) => {
+    const raw = msg.toString();
+    console.log('🎧 Deepgram raw message:', raw);
+
     try {
-      const json = JSON.parse(msg.toString());
+      const json = JSON.parse(raw);
       const text = json.channel?.alternatives?.[0]?.transcript?.trim();
+
       if (text) {
         console.log('📝 Deepgram transcript:', text);
         const gptStream = await getGPTStream(text);
         if (gptStream) {
           await streamToElevenLabs(gptStream, client);
         }
+      } else {
+        console.log('ℹ️ No transcript in this Deepgram message');
       }
     } catch (err) {
       console.error('⚠️ Failed to parse Deepgram message:', err);
