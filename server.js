@@ -51,7 +51,7 @@ wss.on('connection', async (client) => {
 
   client.on('message', (audio) => {
     if (dgSocket.readyState === WebSocket.OPEN) {
-      console.log('📥 Received audio chunk of size:', audio.byteLength || audio.length); // ✅ Log audio chunk size
+      console.log('📥 Received audio chunk of size:', audio.byteLength || audio.length);
       dgSocket.send(audio);
     }
   });
@@ -76,6 +76,7 @@ async function getGPTStream(userInput) {
       },
       body: JSON.stringify({
         model: 'gpt-4o',
+        stream: true,
         messages: [
           {
             role: 'system',
@@ -83,13 +84,12 @@ async function getGPTStream(userInput) {
           },
           { role: 'user', content: userInput },
         ],
-        stream: true,
       }),
     });
 
     return res.body?.getReader();
   } catch (err) {
-    console.error('🧠 GPT error:', err);
+    console.error('🧠 GPT fetch error:', err);
     return null;
   }
 }
@@ -101,9 +101,11 @@ async function streamToElevenLabs(reader, client) {
   );
 
   elSocket.on('open', async () => {
+    console.log('🗣️ ElevenLabs connected');
+
     elSocket.send(
       JSON.stringify({
-        text: '',
+        text: ' ',
         voice_settings: { stability: 0.5, similarity_boost: 0.75 },
         model_id: 'eleven_multilingual_v2',
       })
@@ -112,33 +114,39 @@ async function streamToElevenLabs(reader, client) {
     const decoder = new TextDecoder();
     let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
 
-        const payload = line.replace('data: ', '');
-        if (payload === '[DONE]') {
-          elSocket.close();
-          return;
-        }
-
-        try {
-          const data = JSON.parse(payload);
-          const token = data.choices?.[0]?.delta?.content;
-          if (token && elSocket.readyState === WebSocket.OPEN) {
-            elSocket.send(JSON.stringify({ text: token }));
+          const payload = line.replace('data: ', '');
+          if (payload === '[DONE]') {
+            elSocket.close();
+            return;
           }
-        } catch (err) {
-          console.error('⚠️ ElevenLabs token parse error:', err);
+
+          try {
+            const data = JSON.parse(payload);
+            const token = data.choices?.[0]?.delta?.content;
+            if (token && elSocket.readyState === WebSocket.OPEN) {
+              elSocket.send(JSON.stringify({ text: token }));
+            }
+          } catch (err) {
+            console.error('⚠️ Failed to parse GPT token:', err);
+          }
         }
       }
+    } catch (err) {
+      console.error('📡 Stream error while reading GPT stream:', err);
+    } finally {
+      elSocket.close();
     }
   });
 
@@ -149,7 +157,7 @@ async function streamToElevenLabs(reader, client) {
   });
 
   elSocket.on('close', () => {
-    console.log('🎧 ElevenLabs socket closed');
+    console.log('🔇 ElevenLabs socket closed');
   });
 
   elSocket.on('error', (err) => {
