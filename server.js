@@ -19,7 +19,7 @@ const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
 wss.on('connection', async (client) => {
   console.log('🔌 Client connected to /voice-stream');
 
-  const dgSocket = new WebSocket('wss://api.deepgram.com/v1/listen?language=en&punctuate=true', {
+  const dgSocket = new WebSocket('wss://api.deepgram.com/v1/listen?language=en&punctuate=true&encoding=linear16', {
     headers: { Authorization: `Token ${DEEPGRAM_KEY}` },
   });
 
